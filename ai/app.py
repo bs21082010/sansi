@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from rag.pipeline import pipeline
 from tutor.difficulty import difficulty
 from morph.analyzer import analyzer
+from morph.parser import sanskrit_parser, translator
 from tts.speech import speech
 
 app = FastAPI(title="Sansi AI Service", version="0.3.0")
@@ -151,6 +152,48 @@ async def stem_hindi(text: str):
     words = text.split()
     stems = [analyzer.stem_hindi(w) for w in words]
     return {"original": words, "stems": stems}
+
+
+# ── Full Parser (Deep) ──
+
+@app.post("/morph/parse")
+async def parse_word(word: str):
+    return sanskrit_parser.parse(word)
+
+
+@app.post("/morph/parse-sentence")
+async def parse_sentence(sentence: str):
+    return sanskrit_parser.analyze_sentence(sentence)
+
+
+@app.get("/morph/verb-roots")
+async def list_verb_roots():
+    return sanskrit_parser.list_verb_roots()
+
+
+@app.get("/morph/declension")
+async def get_declension(stem: str):
+    decl = sanskrit_parser.get_declension(stem)
+    if not decl:
+        return {"error": "Declension not found", "stem": stem}
+    return {"stem": stem, "declension": decl}
+
+
+# ── Translation Pairs ──
+
+@app.get("/translate/pairs")
+async def list_translation_pairs(
+    source: str = "", target: str = "", category: str = "", limit: int = 50,
+):
+    return translator.get_pairs(source, target, category, limit)
+
+
+@app.post("/translate/word")
+async def translate_word(word: str, source: str = "sa", target: str = "en"):
+    result = translator.translate_word(word, source, target)
+    if not result:
+        return {"found": False, "word": word}
+    return {"found": True, **result}
 
 
 @app.post("/tts/synthesize")

@@ -21,6 +21,9 @@ from app.api.v1.learning import router as learning_router
 from app.api.v1.marketplace import router as marketplace_router
 from app.api.v1.leaderboard import router as leaderboard_router
 from app.api.v1.seed import router as seed_router
+from app.api.v1.growth import router as growth_router
+from app.api.v1.monetization import router as monetization_router
+from app.api.v1.developer import router as developer_router
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[settings.RATE_LIMIT])
 
@@ -69,6 +72,9 @@ app.include_router(learning_router, prefix=settings.API_V1_PREFIX)
 app.include_router(marketplace_router, prefix=settings.API_V1_PREFIX)
 app.include_router(leaderboard_router, prefix=settings.API_V1_PREFIX)
 app.include_router(seed_router, prefix=settings.API_V1_PREFIX)
+app.include_router(growth_router, prefix=settings.API_V1_PREFIX)
+app.include_router(monetization_router, prefix=settings.API_V1_PREFIX)
+app.include_router(developer_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health")

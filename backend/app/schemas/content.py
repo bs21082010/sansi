@@ -360,3 +360,180 @@ class ReportOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+
+# ── Community Growth Schemas ──
+
+class ChallengeCreate(BaseModel):
+    title: str
+    description: str
+    challenge_type: str = "contribution"
+    goal: int = 1
+    points_reward: int = 100
+    badge_reward: str = ""
+    starts_at: datetime
+    ends_at: datetime
+    is_seasonal: bool = False
+    season: str = ""
+
+
+class ChallengeOut(BaseModel):
+    id: UUID
+    title: str
+    description: str
+    challenge_type: str
+    goal: int
+    points_reward: int
+    badge_reward: str
+    starts_at: datetime
+    ends_at: datetime
+    is_seasonal: bool
+    season: str
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class EventOut(BaseModel):
+    id: UUID
+    title: str
+    description: str
+    event_type: str
+    starts_at: datetime
+    ends_at: datetime
+    banner_url: str
+    prizes: dict
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BadgeRuleOut(BaseModel):
+    id: UUID
+    name: str
+    description: str
+    icon: str
+    category: str
+    condition_type: str
+    condition_threshold: int
+    is_auto: bool
+
+    class Config:
+        from_attributes = True
+
+
+
+# ── Monetization Schemas ──
+
+class SubscriptionPlanOut(BaseModel):
+    id: UUID
+    name: str
+    description: str
+    price_monthly: float
+    price_yearly: float
+    currency: str
+    features: dict
+    tier: str
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserSubscriptionOut(BaseModel):
+    id: UUID
+    user_id: UUID
+    plan_id: UUID
+    status: str
+    current_period_start: datetime
+    current_period_end: datetime
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PremiumBundleCreate(BaseModel):
+    title: str
+    description: str
+    price: float = 0.0
+    currency: str = "INR"
+    courses: list[str] = []
+    features: list[str] = []
+    difficulty: str = "all"
+
+
+class PremiumBundleOut(BaseModel):
+    id: UUID
+    title: str
+    description: str
+    price: float
+    currency: str
+    courses: list
+    features: list
+    difficulty: str
+    is_active: bool
+    created_by: UUID
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TutorPayoutOut(BaseModel):
+    id: UUID
+    tutor_id: UUID
+    amount: float
+    platform_fee: float
+    tutor_share: float
+    period_start: datetime
+    period_end: datetime
+    status: str
+    paid_at: datetime | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+
+# ── Open API Schemas ──
+
+class DeveloperAppCreate(BaseModel):
+    name: str
+    description: str = ""
+
+
+class DeveloperAppOut(BaseModel):
+    id: UUID
+    user_id: UUID
+    name: str
+    description: str
+    api_key: str
+    api_key_prefix: str
+    rate_plan: str
+    requests_per_hour: int
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class APIEndpointOut(BaseModel):
+    id: UUID
+    path: str
+    method: str
+    description: str
+    category: str
+    min_plan: str
+    is_active: bool
+
+    class Config:
+        from_attributes = True

@@ -1,7 +1,7 @@
 import Link from "next/link"
 import {
   BookOpen, GraduationCap, MessageCircle, Users, Globe,
-  Zap, Award, Video,
+  Zap, Award, Video, Trophy, CreditCard, Code,
 } from "lucide-react"
 
 const links = [
@@ -10,8 +10,11 @@ const links = [
   { href: "/courses", label: "Courses", icon: GraduationCap },
   { href: "/flashcards", label: "Flashcards", icon: Zap },
   { href: "/tutors", label: "Tutors", icon: Video },
+  { href: "/challenges", label: "Challenges", icon: Trophy },
   { href: "/community", label: "Community", icon: Users },
   { href: "/leaderboard", label: "Leaderboard", icon: Award },
+  { href: "/plans", label: "Plans", icon: CreditCard },
+  { href: "/developer", label: "Dev", icon: Code },
 ]
 
 export function Navbar() {
@@ -23,12 +26,12 @@ export function Navbar() {
           Sansi
         </Link>
 
-        <div className="hidden items-center gap-5 md:flex">
+        <div className="hidden items-center gap-4 md:flex">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-sansi-600"
+              className="flex items-center gap-1 text-sm text-gray-600 hover:text-sansi-600"
             >
               <link.icon className="h-4 w-4" />
               {link.label}
