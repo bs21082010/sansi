@@ -4,3 +4,4 @@ sentence-transformers==2.2.2
 numpy==1.26.3
 httpx==0.26.0
 pydantic==2.5.3
+TTS==0.22.0

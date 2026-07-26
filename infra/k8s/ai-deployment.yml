@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sansi-ai
+  labels:
+    app: sansi
+    tier: ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sansi
+      tier: ai
+  template:
+    metadata:
+      labels:
+        app: sansi
+        tier: ai
+    spec:
+      containers:
+        - name: ai
+          image: sansi/ai:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: MODEL_DIR
+              value: "/app/models"
+          resources:
+            requests:
+              cpu: "1"
+              memory: "2Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          volumeMounts:
+            - mountPath: /app/models
+              name: model-cache
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: sansi-model-cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sansi-ai
+spec:
+  selector:
+    app: sansi
+    tier: ai
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP

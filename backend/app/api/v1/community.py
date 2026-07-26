@@ -2,9 +2,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 
 from app.core.database import get_db
+from app.core.dependencies import get_current_user, require_role
+from app.core.cache import cache
+from app.models.user import User
+from app.models.badge import UserScore
 from app.models.content import CommunityPost, Comment
 from app.schemas.content import CommunityPostCreate, CommunityPostOut, CommentCreate, CommentOut
 
@@ -12,6 +16,7 @@ router = APIRouter(prefix="/community", tags=["community"])
 
 
 @router.get("/posts", response_model=list[CommunityPostOut])
+@cache(prefix="community_posts", ttl=120)
 async def list_posts(
     post_type: str | None = Query(None),
     page: int = Query(1, ge=1),
@@ -29,16 +34,32 @@ async def list_posts(
 
 
 @router.post("/posts", response_model=CommunityPostOut, status_code=201)
-async def create_post(body: CommunityPostCreate, db: AsyncSession = Depends(get_db)):
-    post = CommunityPost(**body.model_dump())
+async def create_post(
+    body: CommunityPostCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("contributor")),
+):
+    post = CommunityPost(**body.model_dump(), author_id=current_user.id)
     db.add(post)
+
+    score = await db.execute(select(UserScore).where(UserScore.user_id == current_user.id))
+    score_row = score.scalar_one_or_none()
+    if score_row:
+        score_row.total_points += 10
+        score_row.comments_made += 1
+
     await db.flush()
     await db.refresh(post)
     return CommunityPostOut.model_validate(post)
 
 
 @router.post("/posts/{post_id}/vote")
-async def vote_post(post_id: UUID, delta: int = Query(1), db: AsyncSession = Depends(get_db)):
+async def vote_post(
+    post_id: UUID,
+    delta: int = Query(1, ge=-1, le=1),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     result = await db.execute(select(CommunityPost).where(CommunityPost.id == post_id))
     post = result.scalar_one_or_none()
     if not post:
@@ -49,9 +70,20 @@ async def vote_post(post_id: UUID, delta: int = Query(1), db: AsyncSession = Dep
 
 
 @router.post("/comments", response_model=CommentOut, status_code=201)
-async def create_comment(body: CommentCreate, db: AsyncSession = Depends(get_db)):
-    comment = Comment(**body.model_dump())
+async def create_comment(
+    body: CommentCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("contributor")),
+):
+    comment = Comment(**body.model_dump(), author_id=current_user.id)
     db.add(comment)
+
+    score = await db.execute(select(UserScore).where(UserScore.user_id == current_user.id))
+    score_row = score.scalar_one_or_none()
+    if score_row:
+        score_row.total_points += 5
+        score_row.comments_made += 1
+
     await db.flush()
     await db.refresh(comment)
     return CommentOut.model_validate(comment)
@@ -60,8 +92,8 @@ async def create_comment(body: CommentCreate, db: AsyncSession = Depends(get_db)
 @router.get("/comments/{parent_type}/{parent_id}", response_model=list[CommentOut])
 async def list_comments(parent_type: str, parent_id: UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(Comment).where(
-            Comment.parent_type == parent_type, Comment.parent_id == parent_id
-        ).order_by(Comment.created_at)
+        select(Comment)
+        .where(Comment.parent_type == parent_type, Comment.parent_id == parent_id)
+        .order_by(Comment.created_at)
     )
     return [CommentOut.model_validate(c) for c in result.scalars().all()]

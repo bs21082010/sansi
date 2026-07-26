@@ -35,3 +35,27 @@ class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class BadgeOut(BaseModel):
+    id: UUID
+    name: str
+    description: str
+    icon: str
+    category: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserScoreOut(BaseModel):
+    total_points: int
+    texts_uploaded: int
+    annotations_made: int
+    lessons_completed: int
+    votes_cast: int
+    comments_made: int
+
+    class Config:
+        from_attributes = True

@@ -4,7 +4,9 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token, decode_access_token
+from app.core.dependencies import get_current_user
 from app.models.user import User
+from app.models.badge import UserScore
 from app.schemas.user import UserCreate, UserLogin, UserOut, TokenOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -23,12 +25,16 @@ async def register(body: UserCreate, db: AsyncSession = Depends(get_db)):
         username=body.username,
         hashed_password=hash_password(body.password),
         display_name=body.display_name or body.username,
+        role="learner",
     )
     db.add(user)
     await db.flush()
     await db.refresh(user)
 
-    token = create_access_token({"sub": str(user.id)})
+    score = UserScore(user_id=user.id)
+    db.add(score)
+
+    token = create_access_token({"sub": str(user.id), "role": user.role})
     return TokenOut(access_token=token, user=UserOut.model_validate(user))
 
 
@@ -40,19 +46,10 @@ async def login(body: UserLogin, db: AsyncSession = Depends(get_db)):
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_access_token({"sub": str(user.id)})
+    token = create_access_token({"sub": str(user.id), "role": user.role})
     return TokenOut(access_token=token, user=UserOut.model_validate(user))
 
 
 @router.get("/me", response_model=UserOut)
-async def get_me(token: str = Depends(lambda: None), db: AsyncSession = Depends(get_db)):
-    payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    result = await db.execute(select(User).where(User.id == payload["sub"]))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    return UserOut.model_validate(user)
+async def get_me(current_user: User = Depends(get_current_user)):
+    return UserOut.model_validate(current_user)

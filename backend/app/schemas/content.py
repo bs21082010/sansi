@@ -113,12 +113,19 @@ class CommentOut(BaseModel):
         from_attributes = True
 
 
+class CorpusTextAnnotation(BaseModel):
+    annotations: dict
+
+
 class TutorQuery(BaseModel):
     message: str
     language: str = "sa"
     context: str = ""
+    difficulty: str = "auto"  # auto, beginner, intermediate, advanced
 
 
 class TutorResponse(BaseModel):
     reply: str
     citations: list[str] = []
+    difficulty: str = "auto"
+    suggested_exercise: str = ""

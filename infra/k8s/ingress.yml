@@ -1,0 +1,59 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sansi-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - sansi.app
+      secretName: sansi-tls
+  rules:
+    - host: sansi.app
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: sansi-backend
+                port:
+                  number: 8000
+          - path: /ai
+            pathType: Prefix
+            backend:
+              service:
+                name: sansi-ai
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sansi-frontend
+                port:
+                  number: 3000
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sansi-model-cache
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sansi-secrets
+type: Opaque
+stringData:
+  database-url: "postgresql+asyncpg://sansi:sansi_secret@postgres:5432/sansi"
+  secret-key: "change-me-in-production"

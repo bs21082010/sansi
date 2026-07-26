@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
 
     AI_SERVICE_URL: str = "http://ai:8080"
+    REDIS_URL: str = "redis://localhost:6379/0"
+    RATE_LIMIT: str = "100/minute"
+    PROMETHEUS_ENABLED: bool = False
 
     class Config:
         env_file = ".env"
