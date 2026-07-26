@@ -9,174 +9,172 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_role
 from app.models.user import User
 from app.models.marketplace import (
-    TutorProfile, Session, Review, Streak, MentorRequest, Report,
-)
-from app.schemas.content import (
-    TutorProfileCreate, TutorProfileOut,
-    SessionCreate, SessionOut,
-    ReviewCreate, ReviewOut,
-    StreakOut,
-    MentorRequestCreate, MentorRequestOut,
-    ReportCreate, ReportOut,
+    MentorProfile, MentorshipSession, ThankYou, Streak, MentorRequest, Report,
 )
 
-router = APIRouter(prefix="/marketplace", tags=["marketplace"])
+router = APIRouter(prefix="/community", tags=["mentors"])
 
 
-# ── Tutor Profiles ──
+# ── Mentor Profiles ──
 
-@router.get("/tutors", response_model=list[TutorProfileOut])
-async def list_tutors(
+@router.get("/mentors")
+async def list_mentors(
     language: str | None = Query(None),
     specialization: str | None = Query(None),
-    min_rating: float = Query(0.0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(TutorProfile).where(TutorProfile.is_available == True)
+    query = select(MentorProfile).where(MentorProfile.is_available == True)
     if language:
-        query = query.where(TutorProfile.languages.contains([language]))
+        query = query.where(MentorProfile.languages.contains([language]))
     if specialization:
-        query = query.where(TutorProfile.specializations.contains([specialization]))
-    if min_rating > 0:
-        query = query.where(TutorProfile.rating >= min_rating)
+        query = query.where(MentorProfile.specializations.contains([specialization]))
+    result = await db.execute(query.order_by(MentorProfile.thanks_count.desc()))
+    mentors = []
+    for m in result.scalars().all():
+        user = await db.execute(select(User).where(User.id == m.user_id))
+        u = user.scalar_one()
+        mentors.append({
+            "id": str(m.id),
+            "user_id": str(m.user_id),
+            "username": u.username,
+            "display_name": u.display_name,
+            "headline": m.headline,
+            "bio": m.bio,
+            "languages": m.languages,
+            "specializations": m.specializations,
+            "total_sessions": m.total_sessions,
+            "rating": m.rating,
+            "thanks_count": m.thanks_count,
+            "badge": m.badge,
+        })
+    return mentors
 
-    result = await db.execute(query.order_by(TutorProfile.rating.desc()))
-    return [TutorProfileOut.model_validate(t) for t in result.scalars().all()]
 
-
-@router.post("/tutors/profile", response_model=TutorProfileOut)
-async def create_tutor_profile(
-    body: TutorProfileCreate,
+@router.post("/mentors/register")
+async def register_as_mentor(
+    headline: str = "", bio: str = "",
+    languages: str = '["sa","hi","en"]',
+    specializations: str = '["grammar"]',
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("contributor")),
 ):
+    import json
     existing = await db.execute(
-        select(TutorProfile).where(TutorProfile.user_id == current_user.id)
+        select(MentorProfile).where(MentorProfile.user_id == current_user.id)
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Profile already exists")
+        raise HTTPException(status_code=409, detail="Already registered as mentor")
 
-    current_user.is_tutor = True
-    profile = TutorProfile(user_id=current_user.id, **body.model_dump())
+    current_user.is_mentor = True
+    profile = MentorProfile(
+        user_id=current_user.id,
+        headline=headline,
+        bio=bio,
+        languages=json.loads(languages),
+        specializations=json.loads(specializations),
+    )
     db.add(profile)
     await db.flush()
     await db.refresh(profile)
-    return TutorProfileOut.model_validate(profile)
+    return {"registered": True, "mentor_id": str(profile.id)}
 
 
-@router.get("/tutors/me", response_model=TutorProfileOut)
-async def get_my_profile(
+# ── Mentorship Sessions ──
+
+@router.post("/sessions", status_code=201)
+async def request_session(
+    mentor_id: UUID,
+    session_type: str = "video",
+    scheduled_at: str = "",
+    duration_minutes: int = 60,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(TutorProfile).where(TutorProfile.user_id == current_user.id)
+    mentor = await db.execute(
+        select(MentorProfile).where(MentorProfile.user_id == mentor_id)
     )
-    profile = result.scalar_one_or_none()
-    if not profile:
-        raise HTTPException(status_code=404, detail="Tutor profile not found")
-    return TutorProfileOut.model_validate(profile)
+    if not mentor.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Mentor not found")
 
-
-# ── Sessions ──
-
-@router.post("/sessions", response_model=SessionOut, status_code=201)
-async def book_session(
-    body: SessionCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    tutor = await db.execute(select(TutorProfile).where(TutorProfile.user_id == body.tutor_id))
-    tutor_row = tutor.scalar_one_or_none()
-    if not tutor_row:
-        raise HTTPException(status_code=404, detail="Tutor not found")
-
-    session = Session(
-        tutor_id=body.tutor_id,
+    session = MentorshipSession(
+        mentor_id=mentor_id,
         learner_id=current_user.id,
-        session_type=body.session_type,
-        scheduled_at=body.scheduled_at,
-        duration_minutes=body.duration_minutes,
-        amount=tutor_row.hourly_rate * (body.duration_minutes / 60),
+        session_type=session_type,
+        duration_minutes=duration_minutes,
     )
     db.add(session)
-    tutor_row.total_sessions += 1
     await db.flush()
-    await db.refresh(session)
-    return SessionOut.model_validate(session)
+    return {"session_id": str(session.id), "status": "pending"}
 
 
-@router.get("/sessions", response_model=list[SessionOut])
+@router.get("/sessions")
 async def list_sessions(
     status: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    query = select(Session).where(
-        (Session.learner_id == current_user.id) | (Session.tutor_id == current_user.id)
+    query = select(MentorshipSession).where(
+        (MentorshipSession.learner_id == current_user.id) |
+        (MentorshipSession.mentor_id == current_user.id)
     )
     if status:
-        query = query.where(Session.status == status)
-    result = await db.execute(query.order_by(Session.scheduled_at.desc()))
-    return [SessionOut.model_validate(s) for s in result.scalars().all()]
+        query = query.where(MentorshipSession.status == status)
+    result = await db.execute(query.order_by(MentorshipSession.scheduled_at.desc()))
+    sessions = []
+    for s in result.scalars().all():
+        sessions.append({
+            "id": str(s.id),
+            "mentor_id": str(s.mentor_id),
+            "learner_id": str(s.learner_id),
+            "status": s.status,
+            "session_type": s.session_type,
+            "duration_minutes": s.duration_minutes,
+        })
+    return sessions
 
 
-# ── Reviews ──
+# ── Thank You (instead of paid reviews) ──
 
-@router.post("/reviews", response_model=ReviewOut, status_code=201)
-async def create_review(
-    body: ReviewCreate,
+@router.post("/thanks", status_code=201)
+async def send_thanks(
+    session_id: UUID, mentor_id: UUID,
+    rating: int = 5, message: str = "",
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     session = await db.execute(
-        select(Session).where(
-            Session.id == body.session_id,
-            Session.learner_id == current_user.id,
+        select(MentorshipSession).where(
+            MentorshipSession.id == session_id,
+            MentorshipSession.learner_id == current_user.id,
         )
     )
     if not session.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Session not found or not yours")
+        raise HTTPException(status_code=404, detail="Session not found")
 
-    review = Review(
-        session_id=body.session_id,
-        reviewer_id=current_user.id,
-        tutor_id=body.tutor_id,
-        rating=body.rating,
-        content=body.content,
+    thanks = ThankYou(
+        session_id=session_id, giver_id=current_user.id,
+        mentor_id=mentor_id, rating=rating, message=message,
     )
-    db.add(review)
+    db.add(thanks)
 
-    stats = await db.execute(
-        select(func.avg(Review.rating), func.count(Review.id)).where(
-            Review.tutor_id == body.tutor_id
+    mentor = await db.execute(
+        select(MentorProfile).where(MentorProfile.user_id == mentor_id)
+    )
+    m = mentor.scalar_one_or_none()
+    if m:
+        m.thanks_count += 1
+        avg = await db.execute(
+            select(func.avg(ThankYou.rating)).where(ThankYou.mentor_id == mentor_id)
         )
-    )
-    avg_rating, count = stats.one()
-    await db.execute(
-        select(TutorProfile).where(TutorProfile.user_id == body.tutor_id)
-    )
-    tutor_result = await db.execute(
-        select(TutorProfile).where(TutorProfile.user_id == body.tutor_id)
-    )
-    tutor_row = tutor_result.scalar_one_or_none()
-    if tutor_row:
-        tutor_row.rating = round(float(avg_rating or body.rating), 2)
-        tutor_row.review_count = count or 1
-
-    user_result = await db.execute(select(User).where(User.id == body.tutor_id))
-    user_row = user_result.scalar_one_or_none()
-    if user_row:
-        user_row.tutor_rating = round(float(avg_rating or body.rating), 2)
+        m.rating = round(float(avg.scalar() or rating), 2)
 
     await db.flush()
-    await db.refresh(review)
-    return ReviewOut.model_validate(review)
+    return {"thanks": True, "rating": rating}
 
 
 # ── Streaks ──
 
-@router.get("/streaks", response_model=StreakOut)
+@router.get("/streaks")
 async def get_streak(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -189,7 +187,12 @@ async def get_streak(
         streak = Streak(user_id=current_user.id)
         db.add(streak)
         await db.flush()
-    return StreakOut.model_validate(streak)
+    return {
+        "current_streak": streak.current_streak,
+        "longest_streak": streak.longest_streak,
+        "streak_freeze": streak.streak_freeze,
+        "last_activity": streak.last_activity,
+    }
 
 
 @router.post("/streaks/tick")
@@ -209,44 +212,44 @@ async def tick_streak(
     if streak.last_activity:
         diff_hours = (now - streak.last_activity).total_seconds() / 3600
         if diff_hours < 24:
-            return StreakOut.model_validate(streak)
+            return {"current_streak": streak.current_streak}
         elif diff_hours < 48:
             streak.current_streak += 1
         else:
-            if streak.streak_freeze:
-                streak.streak_freeze = False
-                streak.current_streak += 1
-            else:
-                streak.current_streak = 1
+            streak.current_streak = 1
     else:
         streak.current_streak = 1
 
     streak.last_activity = now
     streak.longest_streak = max(streak.longest_streak, streak.current_streak)
     await db.flush()
-    return StreakOut.model_validate(streak)
+    return {"current_streak": streak.current_streak}
 
 
 # ── Mentor Requests ──
 
-@router.post("/mentor-requests", response_model=MentorRequestOut, status_code=201)
+@router.post("/mentor-requests", status_code=201)
 async def create_mentor_request(
-    body: MentorRequestCreate,
+    mentor_id: UUID, question: str, context: str = "",
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    tutor = await db.execute(select(User).where(User.id == body.tutor_id, User.is_mentor == True))
-    if not tutor.scalar_one_or_none():
+    mentor = await db.execute(
+        select(User).where(User.id == mentor_id, User.is_mentor == True)
+    )
+    if not mentor.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Mentor not found")
 
-    req = MentorRequest(learner_id=current_user.id, **body.model_dump())
+    req = MentorRequest(
+        learner_id=current_user.id, mentor_id=mentor_id,
+        question=question, context=context,
+    )
     db.add(req)
     await db.flush()
-    await db.refresh(req)
-    return MentorRequestOut.model_validate(req)
+    return {"request_id": str(req.id), "status": "open"}
 
 
-@router.get("/mentor-requests", response_model=list[MentorRequestOut])
+@router.get("/mentor-requests")
 async def list_mentor_requests(
     status: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -254,30 +257,39 @@ async def list_mentor_requests(
 ):
     query = select(MentorRequest).where(
         (MentorRequest.learner_id == current_user.id) |
-        (MentorRequest.tutor_id == current_user.id)
+        (MentorRequest.mentor_id == current_user.id)
     )
     if status:
         query = query.where(MentorRequest.status == status)
     result = await db.execute(query.order_by(MentorRequest.created_at.desc()))
-    return [MentorRequestOut.model_validate(r) for r in result.scalars().all()]
+    requests = []
+    for r in result.scalars().all():
+        requests.append({
+            "id": str(r.id), "learner_id": str(r.learner_id),
+            "mentor_id": str(r.mentor_id), "status": r.status,
+            "question": r.question, "context": r.context,
+        })
+    return requests
 
 
 # ── Reports (Moderation) ──
 
-@router.post("/reports", response_model=ReportOut, status_code=201)
+@router.post("/reports", status_code=201)
 async def create_report(
-    body: ReportCreate,
+    target_type: str, target_id: UUID, reason: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    report = Report(reporter_id=current_user.id, **body.model_dump())
+    report = Report(
+        reporter_id=current_user.id,
+        target_type=target_type, target_id=target_id, reason=reason,
+    )
     db.add(report)
     await db.flush()
-    await db.refresh(report)
-    return ReportOut.model_validate(report)
+    return {"report_id": str(report.id), "status": "pending"}
 
 
-@router.get("/reports", response_model=list[ReportOut])
+@router.get("/reports")
 async def list_reports(
     status: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -287,13 +299,19 @@ async def list_reports(
     if status:
         query = query.where(Report.status == status)
     result = await db.execute(query.order_by(Report.created_at.desc()))
-    return [ReportOut.model_validate(r) for r in result.scalars().all()]
+    reports = []
+    for r in result.scalars().all():
+        reports.append({
+            "id": str(r.id), "reporter_id": str(r.reporter_id),
+            "target_type": r.target_type, "target_id": str(r.target_id),
+            "reason": r.reason, "status": r.status,
+        })
+    return reports
 
 
 @router.patch("/reports/{report_id}/review")
 async def review_report(
-    report_id: UUID,
-    action: str = "dismissed",
+    report_id: UUID, action: str = "dismissed",
     db: AsyncSession = Depends(get_db),
     moderator: User = Depends(require_role("moderator")),
 ):

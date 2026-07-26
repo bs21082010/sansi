@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.core.cache import cache
 from app.models.user import User
 from app.models.badge import UserScore
-from app.models.marketplace import TutorProfile
+from app.models.marketplace import MentorProfile
 
 router = APIRouter(prefix="/leaderboard", tags=["leaderboard"])
 
@@ -42,25 +42,24 @@ async def contributor_leaderboard(
     return board
 
 
-@router.get("/tutors")
-@cache(prefix="leaderboard_tutors", ttl=300)
-async def tutor_leaderboard(
+@router.get("/mentors")
+@cache(prefix="leaderboard_mentors", ttl=300)
+async def mentor_leaderboard(
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(TutorProfile).order_by(TutorProfile.rating.desc()).limit(limit)
+        select(MentorProfile).order_by(MentorProfile.thanks_count.desc()).limit(limit)
     )
     return [
         {
             "rank": i + 1,
-            "user_id": str(t.user_id),
-            "headline": t.headline,
-            "rating": t.rating,
-            "review_count": t.review_count,
-            "total_sessions": t.total_sessions,
-            "hourly_rate": t.hourly_rate,
-            "badge": t.badge,
+            "user_id": str(m.user_id),
+            "headline": m.headline,
+            "rating": m.rating,
+            "thanks_count": m.thanks_count,
+            "total_sessions": m.total_sessions,
+            "badge": m.badge,
         }
-        for i, t in enumerate(result.scalars().all())
+        for i, m in enumerate(result.scalars().all())
     ]

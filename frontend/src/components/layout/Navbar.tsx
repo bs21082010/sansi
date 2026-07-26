@@ -1,7 +1,7 @@
 import Link from "next/link"
 import {
   BookOpen, GraduationCap, MessageCircle, Users, Globe,
-  Zap, Award, Video, Trophy, CreditCard, Code,
+  Zap, Award, Video, Trophy, Code,
 } from "lucide-react"
 
 const links = [
@@ -9,12 +9,11 @@ const links = [
   { href: "/tutor", label: "Tutor", icon: MessageCircle },
   { href: "/courses", label: "Courses", icon: GraduationCap },
   { href: "/flashcards", label: "Flashcards", icon: Zap },
-  { href: "/tutors", label: "Tutors", icon: Video },
+  { href: "/mentors", label: "Mentors", icon: Video },
   { href: "/challenges", label: "Challenges", icon: Trophy },
   { href: "/community", label: "Community", icon: Users },
   { href: "/leaderboard", label: "Leaderboard", icon: Award },
-  { href: "/plans", label: "Plans", icon: CreditCard },
-  { href: "/developer", label: "Dev", icon: Code },
+  { href: "/developer", label: "API", icon: Code },
 ]
 
 export function Navbar() {

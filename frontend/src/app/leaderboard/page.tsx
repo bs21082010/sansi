@@ -16,7 +16,7 @@ export default function LeaderboardPage() {
           Contributors
         </button>
         <button className="rounded-full bg-gray-100 px-4 py-1 text-sm text-gray-600 hover:bg-gray-200">
-          Tutors
+          Mentors
         </button>
         <button className="rounded-full bg-gray-100 px-4 py-1 text-sm text-gray-600 hover:bg-gray-200">
           Streaks

@@ -1,15 +1,15 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 
 
-class TutorProfile(Base):
-    __tablename__ = "tutor_profiles"
+class MentorProfile(Base):
+    __tablename__ = "mentor_profiles"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -23,27 +23,23 @@ class TutorProfile(Base):
     specializations: Mapped[list] = mapped_column(
         JSONB, default=["grammar", "conversation"]
     )
-    hourly_rate: Mapped[float] = mapped_column(Float, default=0.0)
-    currency: Mapped[str] = mapped_column(String(10), default="INR")
     is_available: Mapped[bool] = mapped_column(Boolean, default=True)
     total_sessions: Mapped[int] = mapped_column(Integer, default=0)
-    rating: Mapped[float] = mapped_column(Float, default=0.0)
-    review_count: Mapped[int] = mapped_column(Integer, default=0)
-    badge: Mapped[str] = mapped_column(
-        String(20), default="new"
-    )  # new, rising, top, expert
+    rating: Mapped[int] = mapped_column(Integer, default=0)
+    thanks_count: Mapped[int] = mapped_column(Integer, default=0)
+    badge: Mapped[str] = mapped_column(String(20), default="new")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
 
-class Session(Base):
-    __tablename__ = "sessions"
+class MentorshipSession(Base):
+    __tablename__ = "mentorship_sessions"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    tutor_id: Mapped[uuid.UUID] = mapped_column(
+    mentor_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), index=True
     )
     learner_id: Mapped[uuid.UUID] = mapped_column(
@@ -54,33 +50,32 @@ class Session(Base):
     )  # pending, confirmed, completed, cancelled
     session_type: Mapped[str] = mapped_column(
         String(20), default="video"
-    )  # video, voice, chat, in_person
+    )  # video, voice, chat
     scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     duration_minutes: Mapped[int] = mapped_column(Integer, default=60)
-    amount: Mapped[float] = mapped_column(Float, default=0.0)
     notes: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
 
-class Review(Base):
-    __tablename__ = "reviews"
+class ThankYou(Base):
+    __tablename__ = "thank_yous"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     session_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sessions.id"), unique=True
+        UUID(as_uuid=True), ForeignKey("mentorship_sessions.id"), unique=True
     )
-    reviewer_id: Mapped[uuid.UUID] = mapped_column(
+    giver_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id")
     )
-    tutor_id: Mapped[uuid.UUID] = mapped_column(
+    mentor_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), index=True
     )
     rating: Mapped[int] = mapped_column(Integer, default=5)
-    content: Mapped[str] = mapped_column(Text, default="")
+    message: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -112,7 +107,7 @@ class MentorRequest(Base):
     learner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), index=True
     )
-    tutor_id: Mapped[uuid.UUID] = mapped_column(
+    mentor_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), index=True
     )
     status: Mapped[str] = mapped_column(
@@ -139,7 +134,7 @@ class Report(Base):
     )
     target_type: Mapped[str] = mapped_column(
         String(30)
-    )  # post, comment, user, tutor
+    )  # post, comment, user, mentor
     target_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
     reason: Mapped[str] = mapped_column(String(300))
     status: Mapped[str] = mapped_column(

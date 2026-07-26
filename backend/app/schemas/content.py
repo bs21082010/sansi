@@ -240,30 +240,26 @@ class TutorResponse(BaseModel):
 
 
 
-# ── Marketplace Schemas ──
+# ── Mentor Schemas (free-first) ──
 
-class TutorProfileCreate(BaseModel):
+class MentorProfileCreate(BaseModel):
     headline: str = ""
     bio: str = ""
     languages: list[str] = ["sa", "hi", "en"]
     specializations: list[str] = ["grammar"]
-    hourly_rate: float = 0.0
-    currency: str = "INR"
 
 
-class TutorProfileOut(BaseModel):
+class MentorProfileOut(BaseModel):
     id: UUID
     user_id: UUID
     headline: str
     bio: str
     languages: list
     specializations: list
-    hourly_rate: float
-    currency: str
     is_available: bool
     total_sessions: int
-    rating: float
-    review_count: int
+    rating: int
+    thanks_count: int
     badge: str
     created_at: datetime
 
@@ -271,22 +267,21 @@ class TutorProfileOut(BaseModel):
         from_attributes = True
 
 
-class SessionCreate(BaseModel):
-    tutor_id: UUID
+class MentorshipSessionCreate(BaseModel):
+    mentor_id: UUID
     scheduled_at: datetime
     duration_minutes: int = 60
     session_type: str = "video"
 
 
-class SessionOut(BaseModel):
+class MentorshipSessionOut(BaseModel):
     id: UUID
-    tutor_id: UUID
+    mentor_id: UUID
     learner_id: UUID
     status: str
     session_type: str
     scheduled_at: datetime
     duration_minutes: int
-    amount: float
     notes: str
     created_at: datetime
 
@@ -294,20 +289,20 @@ class SessionOut(BaseModel):
         from_attributes = True
 
 
-class ReviewCreate(BaseModel):
+class ThankYouCreate(BaseModel):
     session_id: UUID
-    tutor_id: UUID
+    mentor_id: UUID
     rating: int = 5
-    content: str = ""
+    message: str = ""
 
 
-class ReviewOut(BaseModel):
+class ThankYouOut(BaseModel):
     id: UUID
     session_id: UUID
-    reviewer_id: UUID
-    tutor_id: UUID
+    giver_id: UUID
+    mentor_id: UUID
     rating: int
-    content: str
+    message: str
     created_at: datetime
 
     class Config:
@@ -325,7 +320,7 @@ class StreakOut(BaseModel):
 
 
 class MentorRequestCreate(BaseModel):
-    tutor_id: UUID
+    mentor_id: UUID
     question: str
     context: str = ""
 
@@ -333,7 +328,7 @@ class MentorRequestCreate(BaseModel):
 class MentorRequestOut(BaseModel):
     id: UUID
     learner_id: UUID
-    tutor_id: UUID
+    mentor_id: UUID
     status: str
     question: str
     context: str
@@ -422,81 +417,6 @@ class BadgeRuleOut(BaseModel):
     condition_type: str
     condition_threshold: int
     is_auto: bool
-
-    class Config:
-        from_attributes = True
-
-
-
-# ── Monetization Schemas ──
-
-class SubscriptionPlanOut(BaseModel):
-    id: UUID
-    name: str
-    description: str
-    price_monthly: float
-    price_yearly: float
-    currency: str
-    features: dict
-    tier: str
-    is_active: bool
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class UserSubscriptionOut(BaseModel):
-    id: UUID
-    user_id: UUID
-    plan_id: UUID
-    status: str
-    current_period_start: datetime
-    current_period_end: datetime
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class PremiumBundleCreate(BaseModel):
-    title: str
-    description: str
-    price: float = 0.0
-    currency: str = "INR"
-    courses: list[str] = []
-    features: list[str] = []
-    difficulty: str = "all"
-
-
-class PremiumBundleOut(BaseModel):
-    id: UUID
-    title: str
-    description: str
-    price: float
-    currency: str
-    courses: list
-    features: list
-    difficulty: str
-    is_active: bool
-    created_by: UUID
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class TutorPayoutOut(BaseModel):
-    id: UUID
-    tutor_id: UUID
-    amount: float
-    platform_fee: float
-    tutor_share: float
-    period_start: datetime
-    period_end: datetime
-    status: str
-    paid_at: datetime | None
-    created_at: datetime
 
     class Config:
         from_attributes = True
