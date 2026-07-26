@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      - db
+      - ai
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+
+  ai:
+    build: ./ai
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./ai:/app
+      - model-cache:/root/.cache
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: sansi
+      POSTGRES_USER: sansi
+      POSTGRES_PASSWORD: sansi_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+  model-cache:
