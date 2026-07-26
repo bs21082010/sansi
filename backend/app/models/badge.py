@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.types import Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -12,10 +12,10 @@ class Badge(Base):
     __tablename__ = "badges"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid(), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), index=True
+        Uuid(), ForeignKey("users.id"), index=True
     )
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(String(500))
@@ -32,10 +32,10 @@ class UserScore(Base):
     __tablename__ = "user_scores"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid(), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), unique=True, index=True
+        Uuid(), ForeignKey("users.id"), unique=True, index=True
     )
     total_points: Mapped[int] = mapped_column(Integer, default=0)
     texts_uploaded: Mapped[int] = mapped_column(Integer, default=0)

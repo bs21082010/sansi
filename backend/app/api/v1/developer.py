@@ -151,7 +151,6 @@ async def get_usage(
 
 
 @router.get("/endpoints", response_model=list[APIEndpointOut])
-@cache(prefix="api_endpoints", ttl=600)
 async def list_endpoints(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(APIEndpoint).where(APIEndpoint.is_active == True)

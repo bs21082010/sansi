@@ -139,8 +139,12 @@ SEED_TEXTS = [
 @router.post("/corpus", status_code=201)
 async def seed_corpus(
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_role("admin")),
 ):
+    admin = await db.execute(select(User).where(User.role == "admin"))
+    admin_user = admin.scalar_one_or_none()
+    if not admin_user:
+        return {"error": "No admin user found. Create an admin first."}
+
     count = 0
     for data in SEED_TEXTS:
         existing = await db.execute(
@@ -148,7 +152,7 @@ async def seed_corpus(
         )
         if existing.scalar_one_or_none():
             continue
-        text = CorpusText(**data, uploaded_by=admin.id, is_verified=True)
+        text = CorpusText(**data, uploaded_by=admin_user.id, is_verified=True)
         db.add(text)
         count += 1
     await db.flush()

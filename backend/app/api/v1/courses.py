@@ -15,7 +15,6 @@ router = APIRouter(prefix="/courses", tags=["courses"])
 
 
 @router.get("/", response_model=list[CourseOut])
-@cache(prefix="courses_list", ttl=300)
 async def list_courses(
     language: str | None = Query(None),
     level: str | None = Query(None),
@@ -32,7 +31,6 @@ async def list_courses(
 
 
 @router.get("/{course_id}", response_model=CourseOut)
-@cache(prefix="courses_get", ttl=600)
 async def get_course(course_id: UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Course).where(Course.id == course_id))
     course = result.scalar_one_or_none()
@@ -55,7 +53,6 @@ async def create_course(
 
 
 @router.get("/{course_id}/lessons", response_model=list[LessonOut])
-@cache(prefix="lessons_list", ttl=300)
 async def list_lessons(course_id: UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Lesson).where(Lesson.course_id == course_id).order_by(Lesson.order)

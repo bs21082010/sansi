@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.types import Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -12,10 +12,10 @@ class DeveloperApp(Base):
     __tablename__ = "developer_apps"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid(), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), index=True
+        Uuid(), ForeignKey("users.id"), index=True
     )
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="")
@@ -38,10 +38,10 @@ class APIUsageLog(Base):
     __tablename__ = "api_usage_logs"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid(), primary_key=True, default=uuid.uuid4
     )
     app_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("developer_apps.id"), index=True
+        Uuid(), ForeignKey("developer_apps.id"), index=True
     )
     endpoint: Mapped[str] = mapped_column(String(200))
     method: Mapped[str] = mapped_column(String(10))
@@ -56,7 +56,7 @@ class APIEndpoint(Base):
     __tablename__ = "api_endpoints"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        Uuid(), primary_key=True, default=uuid.uuid4
     )
     path: Mapped[str] = mapped_column(String(200), unique=True)
     method: Mapped[str] = mapped_column(String(10), default="GET")

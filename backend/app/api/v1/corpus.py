@@ -15,7 +15,6 @@ router = APIRouter(prefix="/corpus", tags=["corpus"])
 
 
 @router.get("/", response_model=list[CorpusTextOut])
-@cache(prefix="corpus_list", ttl=300)
 async def list_texts(
     language: str | None = Query(None),
     search: str | None = Query(None),
@@ -40,7 +39,6 @@ async def list_texts(
 
 
 @router.get("/{text_id}", response_model=CorpusTextOut)
-@cache(prefix="corpus_get", ttl=600)
 async def get_text(text_id: UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(CorpusText).where(CorpusText.id == text_id))
     text = result.scalar_one_or_none()

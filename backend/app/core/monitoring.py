@@ -23,7 +23,7 @@ try:
         "sansi_active_users_total",
         "Total registered users",
     )
-_can_export = True
+    _can_export = True
 except ImportError:
     _can_export = False
 

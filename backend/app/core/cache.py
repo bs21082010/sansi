@@ -51,8 +51,11 @@ async def cache_invalidate(pattern: str) -> None:
         pass
 
 
+import functools
+
 def cache(prefix: str, ttl: int = 300):
     def decorator(func):
+        @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             key = _make_key(prefix, func.__name__, *args, **kwargs)
             cached = await cache_get(key)

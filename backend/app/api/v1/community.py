@@ -16,7 +16,6 @@ router = APIRouter(prefix="/community", tags=["community"])
 
 
 @router.get("/posts", response_model=list[CommunityPostOut])
-@cache(prefix="community_posts", ttl=120)
 async def list_posts(
     post_type: str | None = Query(None),
     page: int = Query(1, ge=1),

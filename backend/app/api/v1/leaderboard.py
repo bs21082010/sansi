@@ -12,7 +12,6 @@ router = APIRouter(prefix="/leaderboard", tags=["leaderboard"])
 
 
 @router.get("/contributors")
-@cache(prefix="leaderboard_contributors", ttl=120)
 async def contributor_leaderboard(
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -43,7 +42,6 @@ async def contributor_leaderboard(
 
 
 @router.get("/mentors")
-@cache(prefix="leaderboard_mentors", ttl=300)
 async def mentor_leaderboard(
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),

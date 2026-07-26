@@ -57,7 +57,6 @@ async def list_forks(lesson_id: UUID, db: AsyncSession = Depends(get_db)):
 # ── Flashcards ──
 
 @router.get("/courses/{course_id}/flashcards", response_model=list[FlashcardOut])
-@cache(prefix="flashcards", ttl=300)
 async def list_flashcards(course_id: UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Flashcard).where(Flashcard.course_id == course_id)

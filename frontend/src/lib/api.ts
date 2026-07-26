@@ -7,16 +7,23 @@ class ApiClient {
     this.base = base
   }
 
+  private getHeaders(): Record<string, string> {
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("token")
+      if (token) headers["Authorization"] = `Bearer ${token}`
+    }
+    return headers
+  }
+
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
     const res = await fetch(`${this.base}${path}`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-      },
+      headers: { ...this.getHeaders(), ...options?.headers },
       ...options,
     })
     if (!res.ok) {
-      throw new Error(`API error: ${res.status} ${res.statusText}`)
+      const body = await res.text()
+      throw new Error(body || `API error: ${res.status}`)
     }
     return res.json()
   }

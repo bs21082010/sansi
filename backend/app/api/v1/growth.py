@@ -95,7 +95,6 @@ async def check_auto_badges(
 # ── Challenges ──
 
 @router.get("/challenges", response_model=list[ChallengeOut])
-@cache(prefix="challenges", ttl=120)
 async def list_challenges(
     active_only: bool = Query(True),
     seasonal: str | None = Query(None),
@@ -199,7 +198,6 @@ async def update_challenge_progress(
 # ── Events ──
 
 @router.get("/events", response_model=list[EventOut])
-@cache(prefix="events", ttl=300)
 async def list_events(active_only: bool = Query(True), db: AsyncSession = Depends(get_db)):
     query = select(Event)
     if active_only:

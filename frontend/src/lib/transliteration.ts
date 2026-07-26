@@ -1,4 +1,10 @@
-const DEVANAGARI_TO_IAST: Record<string, string> = {
+const VOWEL_SIGNS: Record<string, string> = {
+  "\u093E": "ā", "\u093F": "i", "\u0940": "ī", "\u0941": "u", "\u0942": "ū",
+  "\u0943": "ṛ", "\u0947": "e", "\u0948": "ai", "\u094B": "o", "\u094C": "au",
+  "\u0902": "ṃ", "\u0903": "ḥ",
+}
+
+const LETTERS: Record<string, string> = {
   अ: "a", आ: "ā", इ: "i", ई: "ī", उ: "u", ऊ: "ū",
   ऋ: "ṛ", ए: "e", ऐ: "ai", ओ: "o", औ: "au",
   क: "ka", ख: "kha", ग: "ga", घ: "gha", ङ: "ṅa",
@@ -8,14 +14,13 @@ const DEVANAGARI_TO_IAST: Record<string, string> = {
   प: "pa", फ: "pha", ब: "ba", भ: "bha", म: "ma",
   य: "ya", र: "ra", ल: "la", व: "va", श: "śa",
   ष: "ṣa", स: "sa", ह: "ha",
-  ा: "ā", ि: "i", ी: "ī", ु: "u", ू: "ū",
-  ृ: "ṛ", े: "e", ै: "ai", ो: "o", ौ: "au",
-  ं: "ṃ", ः: "ḥ",
 }
+
+const ALL: Record<string, string> = { ...LETTERS, ...VOWEL_SIGNS }
 
 export function devanagariToIast(text: string): string {
   return text
     .split("")
-    .map((ch) => DEVANAGARI_TO_IAST[ch] || ch)
+    .map((ch) => ALL[ch] || ch)
     .join("")
 }

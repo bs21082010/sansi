@@ -14,3 +14,8 @@ venv/
 *.bin
 *.pth
 data/
+.pg/
+*.db
+*.ps1
+.vercel/
+.env.local
