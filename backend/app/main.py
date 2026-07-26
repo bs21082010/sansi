@@ -16,6 +16,11 @@ from app.api.v1.tutor import router as tutor_router
 from app.api.v1.courses import router as courses_router
 from app.api.v1.community import router as community_router
 from app.api.v1.admin import router as admin_router
+from app.api.v1.annotations import router as annotations_router
+from app.api.v1.learning import router as learning_router
+from app.api.v1.marketplace import router as marketplace_router
+from app.api.v1.leaderboard import router as leaderboard_router
+from app.api.v1.seed import router as seed_router
 
 limiter = Limiter(key_func=get_remote_address, default_limits=[settings.RATE_LIMIT])
 
@@ -59,6 +64,11 @@ app.include_router(tutor_router, prefix=settings.API_V1_PREFIX)
 app.include_router(courses_router, prefix=settings.API_V1_PREFIX)
 app.include_router(community_router, prefix=settings.API_V1_PREFIX)
 app.include_router(admin_router, prefix=settings.API_V1_PREFIX)
+app.include_router(annotations_router, prefix=settings.API_V1_PREFIX)
+app.include_router(learning_router, prefix=settings.API_V1_PREFIX)
+app.include_router(marketplace_router, prefix=settings.API_V1_PREFIX)
+app.include_router(leaderboard_router, prefix=settings.API_V1_PREFIX)
+app.include_router(seed_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health")

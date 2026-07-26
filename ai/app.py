@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import FastAPI, Query
 from pydantic import BaseModel
 
@@ -6,7 +8,7 @@ from tutor.difficulty import difficulty
 from morph.analyzer import analyzer
 from tts.speech import speech
 
-app = FastAPI(title="Sansi AI Service", version="0.2.0")
+app = FastAPI(title="Sansi AI Service", version="0.3.0")
 
 
 class ChatRequest(BaseModel):
@@ -15,6 +17,7 @@ class ChatRequest(BaseModel):
     context: str = ""
     difficulty: str = "auto"
     user_id: str = ""
+    mode: str = "text"  # text, voice, quiz
 
 
 class ChatResponse(BaseModel):
@@ -22,12 +25,31 @@ class ChatResponse(BaseModel):
     citations: list[str] = []
     difficulty: str = "auto"
     suggested_exercise: str = ""
+    mode: str = "text"
+    audio_url: str = ""
+    quiz_data: dict | None = None
 
 
 class TranslateRequest(BaseModel):
     text: str
     source: str = "sa"
     target: str = "hi"
+
+
+QUIZ_DIFFICULTY_MAP = {
+    "beginner": {
+        "grammar": "Choose the correct verb form",
+        "vocabulary": "Match the word with its meaning",
+    },
+    "intermediate": {
+        "sandhi": "Identify the sandhi in this compound",
+        "translation": "Translate this sentence",
+    },
+    "advanced": {
+        "compound": "Identify the type of samāsa",
+        "meter": "Identify the chandas (meter)",
+    },
+}
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -41,19 +63,56 @@ async def chat(req: ChatRequest):
     citations = [d["title"] for d in retrieved]
 
     exercise = difficulty.generate_exercise(level)
-    reply = f"[{level.upper()}] Based on the texts:\n{rag_context}\n\n{req.message}"
+    reply = f"[{level.upper()}] {req.message}\n\nBased on the texts:\n{rag_context}"
+
+    audio_url = ""
+    if req.mode == "voice":
+        audio_bytes = await speech.synthesize(reply, req.language)
+        audio_url = f"/tts/audio/{uuid.uuid4().hex}.wav"
+
+    quiz_data = None
+    if req.mode == "quiz":
+        topics = QUIZ_DIFFICULTY_MAP.get(level, QUIZ_DIFFICULTY_MAP["beginner"])
+        quiz_data = {
+            "type": list(topics.keys())[0],
+            "prompt": list(topics.values())[0],
+            "question": exercise["question"],
+            "hint": exercise["hint"],
+            "explanation": exercise["explanation"],
+        }
 
     return ChatResponse(
         reply=reply,
         citations=citations,
         difficulty=level,
         suggested_exercise=exercise["question"],
+        mode=req.mode,
+        audio_url=audio_url,
+        quiz_data=quiz_data,
     )
+
+
+@app.post("/tutor/escalate")
+async def escalate_to_mentor(
+    user_id: str,
+    question: str,
+    current_level: str = "advanced",
+):
+    return {
+        "escalated": True,
+        "mentor_id": "recommended-mentor-id",
+        "message": f"Your question has been escalated to a human mentor. "
+                   f"Our expert tutors can help with: {question}",
+        "suggested_tutors": [
+            {"name": "Acharya Ravi", "specialization": "vyakarana"},
+            {"name": "Dr. Ananya", "specialization": "vedic"},
+        ],
+    }
 
 
 @app.get("/tutor/exercise")
 async def get_exercise(
-    level: str = Query("beginning", regex="^(beginner|intermediate|advanced)$"),
+    level: str = Query("beginner", regex="^(beginner|intermediate|advanced)$"),
 ):
     return difficulty.generate_exercise(level)
 
@@ -110,5 +169,5 @@ async def health():
     return {
         "status": "ok",
         "service": "sansi-ai",
-        "modules": ["rag", "tts", "morph", "tutor"],
+        "modules": ["rag", "tts", "morph", "tutor", "multimodal"],
     }

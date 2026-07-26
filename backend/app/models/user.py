@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,8 +22,11 @@ class User(Base):
     avatar_url: Mapped[str] = mapped_column(String(500), default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_tutor: Mapped[bool] = mapped_column(Boolean, default=False)
-    role: Mapped[str] = mapped_column(String(20), default="learner")  # learner, contributor, moderator, admin
+    role: Mapped[str] = mapped_column(String(20), default="learner")
     score_points: Mapped[int] = mapped_column(Integer, default=0)
+    tutor_rating: Mapped[float] = mapped_column(Float, default=0.0)
+    tutor_sessions: Mapped[int] = mapped_column(Integer, default=0)
+    is_mentor: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
