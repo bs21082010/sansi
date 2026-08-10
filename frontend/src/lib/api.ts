@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://iqfmvqdyrajrugghcetb.supabase.co/functions/v1/apiv2"
 
 class ApiClient {
   private base: string

@@ -19,3 +19,8 @@ data/
 *.ps1
 .vercel/
 .env.local
+
+.vercel
+.env*
+*.tsbuildinfo
+build.log

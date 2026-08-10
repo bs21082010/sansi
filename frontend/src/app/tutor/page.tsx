@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Send } from "lucide-react"
+import { api } from "@/lib/api"
 
 type Message = {
   role: "user" | "assistant"
@@ -17,20 +18,27 @@ export default function TutorPage() {
     },
   ])
   const [input, setInput] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const sendMessage = () => {
-    if (!input.trim()) return
+  const sendMessage = async () => {
+    if (!input.trim() || loading) return
     const userMsg: Message = { role: "user", content: input }
     setMessages((prev) => [...prev, userMsg])
     setInput("")
+    setLoading(true)
 
-    setTimeout(() => {
-      const reply: Message = {
-        role: "assistant",
-        content: `I understand your question about "${input}". I'll help you learn this concept. (AI integration coming soon — this is a demo response.)`,
-      }
-      setMessages((prev) => [...prev, reply])
-    }, 500)
+    try {
+      const res = await api.post<{ reply: string }>("/tutor/chat", {
+        message: input,
+        language: "sa",
+        difficulty: "beginner",
+      })
+      setMessages((prev) => [...prev, { role: "assistant", content: res.reply }])
+    } catch {
+      setMessages((prev) => [...prev, { role: "assistant", content: "Sorry, I couldn't process that. Please try again." }])
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -64,6 +72,7 @@ export default function TutorPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              disabled={loading}
               placeholder="Ask a question in Sanskrit, Hindi, or English..."
               className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:border-sansi-500 focus:outline-none"
             />

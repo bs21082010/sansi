@@ -31,6 +31,13 @@ export default function RegisterPage() {
     }
   }
 
+  const continueAsGuest = () => {
+    localStorage.removeItem("token")
+    localStorage.removeItem("user")
+    localStorage.setItem("guest", "true")
+    router.push("/dashboard")
+  }
+
   return (
     <div className="mx-auto max-w-md pt-16">
       <h1 className="text-3xl font-bold text-center">Create Account</h1>
@@ -79,6 +86,17 @@ export default function RegisterPage() {
           {loading ? "Creating account..." : "Create Account"}
         </button>
       </form>
+      <div className="mt-6 flex items-center gap-3">
+        <hr className="flex-1 border-gray-300" />
+        <span className="text-sm text-gray-500">or</span>
+        <hr className="flex-1 border-gray-300" />
+      </div>
+      <button
+        onClick={continueAsGuest}
+        className="mt-4 w-full rounded-lg border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-100"
+      >
+        Continue as Guest
+      </button>
       <p className="mt-4 text-center text-sm text-gray-600">
         Already have an account?{" "}
         <Link href="/login" className="text-sansi-600 hover:underline">

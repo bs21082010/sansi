@@ -53,10 +53,10 @@ export default function Home() {
             Start Learning Free
           </Link>
           <Link
-            href="/corpus"
+            href="/tutor"
             className="rounded-lg border border-gray-300 px-6 py-3 text-gray-700 hover:bg-gray-100"
           >
-            Explore Corpus
+            Try Tutor as Guest
           </Link>
         </div>
       </section>
