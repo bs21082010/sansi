@@ -14,10 +14,37 @@ function json(d: unknown, s = 200) {
 }
 function err(m: string, s = 400) { return json({ detail: m }, s); }
 
-function isAdmin(req: Request): boolean {
-  if (!ADMIN_KEY) return true;
-  const h = req.headers.get("X-API-Key") || req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") || "";
-  return h === ADMIN_KEY;
+async function authUser(req: Request): Promise<{ id: string; email?: string; accountType?: string } | null> {
+  const token = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
+  if (!token) return null;
+  const { data } = await supabase.auth.getUser(token);
+  const u = data?.user;
+  if (!u) return null;
+  return { id: u.id, email: u.email ?? undefined, accountType: (u.user_metadata?.account_type as string) || undefined };
+}
+
+async function isAdmin(req: Request): Promise<boolean> {
+  if (ADMIN_KEY) {
+    const h = req.headers.get("X-API-Key") || req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") || "";
+    if (h === ADMIN_KEY) return true;
+  }
+  const user = await authUser(req);
+  if (user && (user.accountType === "institution" || user.accountType === "teacher")) return true;
+  return !ADMIN_KEY;
+}
+
+async function isOwner(req: Request, schoolId: string): Promise<boolean> {
+  if (ADMIN_KEY) {
+    const h = req.headers.get("X-API-Key") || req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") || "";
+    if (h === ADMIN_KEY) return true;
+  }
+  const user = await authUser(req);
+  if (!user) return !ADMIN_KEY;
+  const { data: school } = await supabase.from("schools").select("owner_id").eq("id", schoolId).maybeSingle();
+  if (!school) return true;
+  if (school.owner_id === user.id) return true;
+  if (school.owner_id == null && user.accountType === "institution") return true;
+  return false;
 }
 
 function shortCode(name: string, udise: string): string {
@@ -119,6 +146,8 @@ Deno.serve(async (req: Request) => {
         const board = url.searchParams.get("board") || "";
         const udise = url.searchParams.get("udise") || "";
         const affiliation = url.searchParams.get("affiliation") || "";
+        const ownerEmail = url.searchParams.get("owner_email") || "";
+        const ownerId = url.searchParams.get("owner_id") || "";
         const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
         const size = Math.min(100, Math.max(1, parseInt(url.searchParams.get("size") || "20")));
 
@@ -129,17 +158,22 @@ Deno.serve(async (req: Request) => {
         if (board) query = query.eq("board", board);
         if (udise) query = query.eq("udise_code", udise);
         if (affiliation) query = query.eq("cbse_affiliation_no", affiliation);
+        if (ownerEmail) query = query.eq("owner_email", ownerEmail);
+        if (ownerId) query = query.eq("owner_id", ownerId);
         const { data, count, error } = await query.order("name").range((page - 1) * size, page * size - 1);
         if (error) return err(error.message, 500);
         return json({ data: data || [], count: count || 0, page, size });
       }
 
       if (method === "POST") {
-        if (!isAdmin(req)) return err("Unauthorized", 401);
+        if (!(await isAdmin(req))) return err("Unauthorized", 401);
         const b = await req.json();
         if (!b?.name) return err("name required", 400);
+        const user = await authUser(req);
         const { data, error } = await supabase.from("schools").insert({
           name: b.name,
+          owner_id: user?.id ?? null,
+          owner_email: user?.email ?? (b.owner_email || null),
           udise_code: b.udise_code || null,
           cbse_affiliation_no: b.cbse_affiliation_no || null,
           cbse_exam_code: b.cbse_exam_code || null,
@@ -169,7 +203,7 @@ Deno.serve(async (req: Request) => {
     // ----- /import -----
     if (paths.length === 1 && paths[0] === "import") {
       if (method !== "POST") return err("Method not allowed", 405);
-      if (!isAdmin(req)) return err("Unauthorized", 401);
+      if (!(await isAdmin(req))) return err("Unauthorized", 401);
       const b = await req.json().catch(() => ({}));
       const stats = await importSaras(b?.url || undefined);
       return json({ data: stats });
@@ -211,7 +245,7 @@ Deno.serve(async (req: Request) => {
           });
         }
         if (method === "PATCH") {
-          if (!isAdmin(req)) return err("Unauthorized", 401);
+          if (!(await isOwner(req, id))) return err("Unauthorized", 401);
           const b = await req.json();
           const allowed = ["name", "udise_code", "cbse_affiliation_no", "cbse_exam_code", "school_type", "management", "board", "medium", "affiliation_status", "address", "city", "district", "state", "pincode", "phone", "email", "website", "principal_name", "is_active"];
           const patch: Record<string, unknown> = {};
@@ -222,7 +256,7 @@ Deno.serve(async (req: Request) => {
           return json({ data });
         }
         if (method === "DELETE") {
-          if (!isAdmin(req)) return err("Unauthorized", 401);
+          if (!(await isOwner(req, id))) return err("Unauthorized", 401);
           const { error } = await supabase.from("schools").update({ is_active: false }).eq("id", id);
           if (error) return err(error.message, 400);
           return json({ data: { id } });
@@ -239,7 +273,7 @@ Deno.serve(async (req: Request) => {
             return json({ data: data || [] });
           }
           if (method === "POST") {
-            if (!isAdmin(req)) return err("Unauthorized", 401);
+            if (!(await isOwner(req, id))) return err("Unauthorized", 401);
             const b = await req.json();
             if (!b?.name) return err("name required", 400);
             const { data: school } = await supabase.from("schools").select("short_code, udise_code").eq("id", id).single();
@@ -273,7 +307,7 @@ Deno.serve(async (req: Request) => {
             return json({ data });
           }
           if (method === "PATCH") {
-            if (!isAdmin(req)) return err("Unauthorized", 401);
+            if (!(await isOwner(req, id))) return err("Unauthorized", 401);
             const b = await req.json();
             const allowed = ["name", "email", "phone", "designation", "subjects", "qualification", "joining_date", "status"];
             const patch: Record<string, unknown> = {};
@@ -284,7 +318,7 @@ Deno.serve(async (req: Request) => {
             return json({ data });
           }
           if (method === "DELETE") {
-            if (!isAdmin(req)) return err("Unauthorized", 401);
+            if (!(await isOwner(req, id))) return err("Unauthorized", 401);
             const { error } = await supabase.from("school_teachers").update({ status: "inactive" }).eq("id", teacherId).eq("school_id", id);
             if (error) return err(error.message, 400);
             return json({ data: { id: teacherId } });
@@ -314,7 +348,7 @@ Deno.serve(async (req: Request) => {
             return json({ data: data || [], count: count || 0, page, size });
           }
           if (method === "POST") {
-            if (!isAdmin(req)) return err("Unauthorized", 401);
+            if (!(await isOwner(req, id))) return err("Unauthorized", 401);
             const b = await req.json();
             if (!b?.name) return err("name required", 400);
             if (!b.class_id && !b.section_id) return err("class_id or section_id required", 400);
@@ -368,7 +402,7 @@ Deno.serve(async (req: Request) => {
             return json({ data });
           }
           if (method === "PATCH") {
-            if (!isAdmin(req)) return err("Unauthorized", 401);
+            if (!(await isOwner(req, id))) return err("Unauthorized", 401);
             const b = await req.json();
             const { data: cur, error: curErr } = await supabase
               .from("students").select("section_id, class_id").eq("id", studentId).eq("school_id", id).maybeSingle();
@@ -411,7 +445,7 @@ Deno.serve(async (req: Request) => {
             return json({ data });
           }
           if (method === "DELETE") {
-            if (!isAdmin(req)) return err("Unauthorized", 401);
+            if (!(await isOwner(req, id))) return err("Unauthorized", 401);
             const { data: cur, error: curErr } = await supabase
               .from("students").select("section_id").eq("id", studentId).eq("school_id", id).maybeSingle();
             if (curErr) return err(curErr.message, 500);
@@ -434,7 +468,7 @@ Deno.serve(async (req: Request) => {
           return json({ data });
         }
         if (method === "PUT") {
-          if (!isAdmin(req)) return err("Unauthorized", 401);
+          if (!(await isOwner(req, id))) return err("Unauthorized", 401);
           const b = await req.json();
           const patch: Record<string, unknown> = {};
           if (b.branding) patch.branding = b.branding;
@@ -474,7 +508,7 @@ Deno.serve(async (req: Request) => {
             return json({ data: merged });
           }
           if (method === "POST") {
-            if (!isAdmin(req)) return err("Unauthorized", 401);
+            if (!(await isOwner(req, id))) return err("Unauthorized", 401);
             const b = await req.json();
             if (!b?.name) return err("name required", 400);
             const { data, error } = await supabase.from("school_classes").insert({
@@ -499,7 +533,7 @@ Deno.serve(async (req: Request) => {
             return json({ ...data, sections: sections || [] });
           }
           if (method === "PATCH") {
-            if (!isAdmin(req)) return err("Unauthorized", 401);
+            if (!(await isOwner(req, id))) return err("Unauthorized", 401);
             const b = await req.json();
             const patch: Record<string, unknown> = {};
             if (b.name !== undefined) patch.name = String(b.name).trim();
@@ -511,7 +545,7 @@ Deno.serve(async (req: Request) => {
             return json({ data });
           }
           if (method === "DELETE") {
-            if (!isAdmin(req)) return err("Unauthorized", 401);
+            if (!(await isOwner(req, id))) return err("Unauthorized", 401);
             const { error } = await supabase.from("school_classes").update({ is_active: false }).eq("id", classId).eq("school_id", id);
             if (error) return err(error.message, 400);
             return json({ data: { id: classId } });
@@ -523,7 +557,7 @@ Deno.serve(async (req: Request) => {
         if (paths[3] === "sections") {
           if (paths.length === 4) {
             if (method === "POST") {
-              if (!isAdmin(req)) return err("Unauthorized", 401);
+              if (!(await isOwner(req, id))) return err("Unauthorized", 401);
               const b = await req.json();
               if (!b?.name) return err("name required", 400);
               const count = Math.max(0, parseInt(b.student_count) || 0);
@@ -548,7 +582,7 @@ Deno.serve(async (req: Request) => {
               return json({ data });
             }
             if (method === "PATCH") {
-              if (!isAdmin(req)) return err("Unauthorized", 401);
+              if (!(await isOwner(req, id))) return err("Unauthorized", 401);
               const b = await req.json();
               const patch: Record<string, unknown> = {};
               if (b.name !== undefined) patch.name = String(b.name).trim();
@@ -560,7 +594,7 @@ Deno.serve(async (req: Request) => {
               return json({ data });
             }
             if (method === "DELETE") {
-              if (!isAdmin(req)) return err("Unauthorized", 401);
+              if (!(await isOwner(req, id))) return err("Unauthorized", 401);
               const { error } = await supabase.from("class_sections").update({ is_active: false }).eq("id", sectionId).eq("class_id", classId);
               if (error) return err(error.message, 400);
               return json({ data: { id: sectionId } });
