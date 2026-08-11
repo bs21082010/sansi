@@ -214,6 +214,21 @@ Deno.serve(async (req: Request) => {
       const id = paths[0];
 
       if (paths.length === 1) {
+        if (method === "POST") {
+          const user = await authUser(req);
+          if (!user || (user.accountType !== "institution" && user.accountType !== "teacher")) {
+            return err("Sign in with an institution or teacher account to claim a school", 401);
+          }
+          const { data: cur } = await supabase.from("schools").select("owner_id").eq("id", id).maybeSingle();
+          if (!cur) return err("School not found", 404);
+          if (cur.owner_id && cur.owner_id !== user.id) return err("This school is already claimed by another account", 409);
+          if (cur.owner_id === user.id) return json({ data: { id, already_owner: true } });
+          const { data, error } = await supabase.from("schools")
+            .update({ owner_id: user.id, owner_email: user.email ?? null })
+            .eq("id", id).select().single();
+          if (error) return err(error.message, 400);
+          return json({ data, already_owner: false });
+        }
         if (method === "GET") {
           const { data, error } = await supabase.from("schools").select("*").eq("id", id).single();
           if (error) return err("School not found", 404);
